@@ -23,7 +23,12 @@ class VideoListPage extends StatelessWidget {
                   builder: (context) => const VideoDetailsPage(),
                 ));
               },
-              title: const Text('2023年1月9日 月曜日 9時15分'),
+              title: const Text(
+                '2023/1/9(月) 9:15',
+                overflow: TextOverflow.ellipsis,
+              ),
+              leading: Image.network(
+                  'https://flutter.github.io/assets-for-api-docs/assets/widgets/owl.jpg'),
               trailing: const Icon(Icons.chevron_right),
             );
           },
