@@ -1,18 +1,24 @@
-
+import 'package:abacam/database/database.dart';
+import 'package:abacam/provider/database_provider.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
-class VideoRecorderPage extends StatefulWidget {
+class VideoRecorderPage extends ConsumerStatefulWidget {
   const VideoRecorderPage({super.key});
 
   @override
-  State<VideoRecorderPage> createState() => _VideoRecorderPageState();
+  ConsumerState<VideoRecorderPage> createState() => _VideoRecorderPageState();
 }
 
-class _VideoRecorderPageState extends State<VideoRecorderPage> {
+class _VideoRecorderPageState extends ConsumerState<VideoRecorderPage> {
   late CameraController _cameraController;
   late Future<void> _initializeCameraFuture;
   bool _isRecording = false;
+  bool _isWaiting = false;
+  XFile? _picture;
 
   @override
   void initState() {
@@ -36,7 +42,7 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
       return camera.lensDirection == CameraLensDirection.back;
     });
 
-    _cameraController = CameraController(cameraBack, ResolutionPreset.max);
+    _cameraController = CameraController(cameraBack, ResolutionPreset.medium);
     await _cameraController.initialize();
   }
 
@@ -72,11 +78,23 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
 
   _startButton(BuildContext context) {
     return ElevatedButton(
-      onPressed: () {
-        setState(() {
-          _isRecording = true;
-        });
-      },
+      onPressed: _isWaiting
+          ? null
+          : () async {
+              HapticFeedback.heavyImpact();
+
+              setState(() {
+                _isWaiting = true;
+              });
+
+              _picture = await _cameraController.takePicture();
+              await _cameraController.startVideoRecording();
+
+              setState(() {
+                _isWaiting = false;
+                _isRecording = true;
+              });
+            },
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.blue,
         padding: const EdgeInsets.all(20),
@@ -87,12 +105,32 @@ class _VideoRecorderPageState extends State<VideoRecorderPage> {
   }
 
   _stopButton(BuildContext context) {
+    final db = ref.watch(databaseProvider);
+
     return ElevatedButton(
-      onPressed: () {
-        setState(() {
-          _isRecording = false;
-        });
-      },
+      onPressed: _isWaiting
+          ? null
+          : () async {
+              HapticFeedback.heavyImpact();
+
+              setState(() {
+                _isWaiting = true;
+              });
+
+              final video = await _cameraController.stopVideoRecording();
+
+              await db.into(db.videos).insert(VideosCompanion.insert(
+                title: DateFormat('y/M/d(E) HH:mm', 'ja_JP').format(DateTime.now()),
+                description: '',
+                thumbnail: _picture!.path,
+                filepath: video.path,
+              ));
+
+              setState(() {
+                _isWaiting = false;
+                _isRecording = false;
+              });
+            },
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.red,
         padding: const EdgeInsets.all(20),

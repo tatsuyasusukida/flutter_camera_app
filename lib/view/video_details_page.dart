@@ -1,27 +1,40 @@
+import 'dart:io';
 
+import 'package:abacam/database/database.dart';
+import 'package:abacam/provider/database_provider.dart';
+import 'package:abacam/provider/video_provider_family.dart';
 import 'package:adaptive_dialog/adaptive_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 
-class VideoDetailsPage extends StatefulWidget {
-  const VideoDetailsPage({super.key});
+class VideoDetailsPage extends ConsumerStatefulWidget {
+  final int id;
+
+  const VideoDetailsPage({super.key, required this.id});
 
   @override
-  State<VideoDetailsPage> createState() => _VideoDetailsPageState();
+  ConsumerState<VideoDetailsPage> createState() => _VideoDetailsPageState();
 }
 
-class _VideoDetailsPageState extends State<VideoDetailsPage> {
-  late VideoPlayerController _videoPlayerController;
-  late Future<void> _initializeVideoPlayerFuture;
+class _VideoDetailsPageState extends ConsumerState<VideoDetailsPage> {
+  late final VideoPlayerController _videoPlayerController;
+  late final Future<void> _initializeVideoPlayerFuture;
+  late final Video _video;
 
   @override
   void initState() {
     super.initState();
-    const dataSource =
-        'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4';
-    _videoPlayerController = VideoPlayerController.network(dataSource);
-    _initializeVideoPlayerFuture = _videoPlayerController.initialize();
+    _initializeVideoPlayerFuture = _initializeVideoPlayer();
+  }
+
+  Future<void> _initializeVideoPlayer() async {
+    _video = await ref.read(videoFutureProvider(widget.id));
+    _videoPlayerController = VideoPlayerController.file(File(_video.filepath));
+    _videoPlayerController.addListener(_onChangeVideo);
+
+    await _videoPlayerController.initialize();
   }
 
   @override
@@ -75,7 +88,7 @@ class _VideoDetailsPageState extends State<VideoDetailsPage> {
                       children: [
                         const SizedBox(height: 16),
                         TextFormField(
-                          initialValue: '2023年1月9日 月曜日 9時15分',
+                          initialValue: _video.title,
                           decoration: const InputDecoration(
                             label: Text('タイトル'),
                             border: OutlineInputBorder(),
@@ -154,5 +167,15 @@ class _VideoDetailsPageState extends State<VideoDetailsPage> {
         _videoPlayerController.play();
       }
     });
+  }
+
+  void _onChangeVideo() {
+    final video = _videoPlayerController.value;
+    const start = Duration();
+    final end = video.duration;
+
+    if (video.position == start || video.position == end) {
+      setState(() {});
+    }
   }
 }
